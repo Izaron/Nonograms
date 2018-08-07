@@ -49,7 +49,10 @@ void OneLineSolver::AllocMemory(int side_length) {
         cache_[i].resize(side_length + 1);
         calculated_fill_[i].resize(side_length + 1);
     }
-    result_cells_.resize(side_length);
+    black_result_cells_.resize(side_length + 1);
+    white_result_cells_.resize(side_length + 1);
+    black_sums_.resize(side_length);
+    white_sums_.resize(side_length);
     cache_count_ = 0;
 }
 
@@ -60,22 +63,35 @@ bool OneLineSolver::CanPlaceColor(const vector<int>& cells, int color,
         return false;
     }
 
-    // We can paint a block of cells with a certain color if and only if it is
-    // possible for all cells to have this color (that means, if every cell
-    // from the block has color-th bit set to 1)
-    int mask = 1 << color;
-    for (int i = lbound; i <= rbound; ++i) {
-        if (!(cells[i] & mask)) {
-            return false;
+    int res = 0;
+
+    // white color
+    if (color == 0) {
+        res = white_sums_[rbound];
+        if (lbound) {
+            res -= white_sums_[lbound - 1];
         }
     }
-    return true;
+
+    // black color
+    if (color == 1) {
+        res = black_sums_[rbound];
+        if (lbound) {
+            res -= black_sums_[lbound - 1];
+        }
+    }
+
+    return res == rbound - lbound + 1;
 }
 
 void OneLineSolver::SetPlaceColor(int color, int lbound, int rbound) {
     // Every cell from the block now can have this color
-    for (int i = lbound; i <= rbound; ++i) {
-        result_cells_[i] |= (1 << color);
+    if (color == 0) {
+        white_result_cells_[lbound]++;
+        white_result_cells_[rbound + 1]--;
+    } else {
+        black_result_cells_[lbound]++;
+        black_result_cells_[rbound + 1]--;
     }
 }
 
@@ -166,7 +182,24 @@ bool OneLineSolver::UpdateState(const vector<std::pair<int, int>>& groups,
         vector<int>& cells) {
     // Update memory
     cache_count_++;
-    fill(result_cells_.begin(), result_cells_.begin() + cells.size(), 0);
+    fill(black_result_cells_.begin(),
+            black_result_cells_.begin() + cells.size(), 0);
+    fill(white_result_cells_.begin(),
+            white_result_cells_.begin() + cells.size(), 0);
+
+    for (int i = 0; i < cells.size(); i++) {
+        black_sums_[i] = (cells[i] & 2) ? 1 : 0;
+        if (i) {
+            black_sums_[i] += black_sums_[i - 1];
+        }
+    }
+
+    for (int i = 0; i < cells.size(); i++) {
+        white_sums_[i] = (cells[i] & 1) ? 1 : 0;
+        if (i) {
+            white_sums_[i] += white_sums_[i - 1];
+        }
+    }
 
     if (!CanFill(groups, cells)) {
         Logger::get()->error("The puzzle can't be solved due to an incorrect "
@@ -176,7 +209,18 @@ bool OneLineSolver::UpdateState(const vector<std::pair<int, int>>& groups,
     }
 
     // result_cells_ contains the updated state
-    copy(result_cells_.begin(), result_cells_.begin() + cells.size(),
-            cells.begin());
+    int w = 0, b = 0;
+    for (int i = 0; i < cells.size(); i++) {
+        w += white_result_cells_[i];
+        b += black_result_cells_[i];
+        if (w && b)
+            cells[i] = 3;
+        else if (w)
+            cells[i] = 1;
+        else if (b)
+            cells[i] = 2;
+        else
+            cells[i] = 0;
+    }
     return true;
 }

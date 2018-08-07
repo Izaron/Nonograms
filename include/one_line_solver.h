@@ -69,10 +69,15 @@ class OneLineSolver {
 
     // Used to save intermediate results (cells bit masks) before updating
     // the cells vector
-    std::vector<int> result_cells_;
+    std::vector<int> black_result_cells_;
+    std::vector<int> white_result_cells_;
 
     //  Used to manage recalculations, increments when UpdateState() is called
     int cache_count_;
+
+    // Used to work with black-white puzzles
+    std::vector<int> black_sums_;
+    std::vector<int> white_sums_;
 };
 
 #endif  // NONOGRAMS_ONE_LINE_SOLVER_H_
